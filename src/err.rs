@@ -61,7 +61,23 @@ fn main() {
 */
 #[macro_export(local_inner_macros)]
 macro_rules! py_exception {
-    ($module: ident, $name: ident, $base: ty) => {
+    ($($module:ident).+, $name: ident, $base: ty) => {
+        py_exception!(@INNER
+            _cpython__err__concat!(
+                $(_cpython__err__stringify!($module), "."),*,
+                _cpython__err__stringify!($name)),
+            $name,
+            $base);
+    };
+    ($($module:ident).+, $name: ident) => {
+        py_exception!(@INNER
+            _cpython__err__concat!(
+                $(_cpython__err__stringify!($module), "."),*,
+                _cpython__err__stringify!($name)),
+            $name,
+            $crate::exc::Exception);
+    };
+    (@INNER $path:expr, name: ident, $base: ty) => {
         pub struct $name($crate::PyObject);
 
         pyobject_newtype!($name);
@@ -105,7 +121,7 @@ macro_rules! py_exception {
                     if type_object.is_null() {
                         type_object = $crate::PyErr::new_type(
                             py,
-                            _cpython__err__concat!(_cpython__err__stringify!($module), ".", _cpython__err__stringify!($name)),
+                            $path,
                             Some($crate::PythonObject::into_object(py.get_type::<$base>())),
                             None).as_type_ptr();
                     }
@@ -115,9 +131,6 @@ macro_rules! py_exception {
             }
         }
     };
-    ($module: ident, $name: ident) => {
-        py_exception!($module, $name, $crate::exc::Exception);
-    }
 }
 
 /// Represents a Python exception that was raised.
